@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class CmsPage extends Model
+{
+    protected $guarded = [];
+
+    protected $casts = [
+        'is_published' => 'boolean',
+    ];
+
+    public function sections(): HasMany
+    {
+        return $this->hasMany(CmsSection::class, 'page_id')->orderBy('sort_order');
+    }
+}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CmsBlock;
 use App\Models\CmsPage;
 use App\Models\CmsSection;
+use App\Services\CmsPageLayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 
 class PageLayoutController extends Controller
 {
+    public function __construct(private readonly CmsPageLayoutService $layoutService) {}
     public function publicIndex(): JsonResponse
     {
         $pages = CmsPage::where('is_published', true)
@@ -189,6 +191,36 @@ class PageLayoutController extends Controller
         CmsBlock::findOrFail($id)->delete();
 
         return response()->json(['message' => 'Block deleted']);
+    }
+
+    public function resetPage(int $id): JsonResponse
+    {
+        $page = $this->layoutService->resetPageById($id);
+
+        if (! $page) {
+            return response()->json([
+                'message' => 'No default layout available for this page.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Page reset to default design.',
+            'data'    => $this->formatPage($page),
+        ]);
+    }
+
+    public function resetAllPages(): JsonResponse
+    {
+        $this->layoutService->resetAll();
+
+        $pages = CmsPage::orderBy('sort_order')
+            ->with(['sections' => fn ($q) => $q->orderBy('sort_order')->with(['blocks' => fn ($bq) => $bq->orderBy('sort_order')])])
+            ->get();
+
+        return response()->json([
+            'message' => 'All pages reset to default design.',
+            'data'    => $pages->map(fn ($p) => $this->formatPage($p)),
+        ]);
     }
 
     public function reorder(Request $request): JsonResponse

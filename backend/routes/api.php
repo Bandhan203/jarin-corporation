@@ -57,7 +57,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::patch('/cms/{id}', [CmsController::class, 'update']);
 
         Route::get('/cms/pages/layout', [PageLayoutController::class, 'adminIndex']);
+        Route::post('/cms/pages/reset-all', [PageLayoutController::class, 'resetAllPages']);
         Route::post('/cms/pages', [PageLayoutController::class, 'storePage']);
+        Route::post('/cms/pages/{id}/reset', [PageLayoutController::class, 'resetPage']);
         Route::patch('/cms/pages/{id}', [PageLayoutController::class, 'updatePage']);
         Route::delete('/cms/pages/{id}', [PageLayoutController::class, 'destroyPage']);
         Route::post('/cms/sections', [PageLayoutController::class, 'storeSection']);

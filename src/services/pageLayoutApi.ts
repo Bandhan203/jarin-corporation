@@ -12,6 +12,7 @@ export interface CmsBlockContent {
   eyebrow?: string;
   variant?: string;
   cmsKey?: string;
+  highlight?: string;
   imageKey?: string;
   imageUrl?: string;
   alt?: string;
@@ -143,6 +144,16 @@ export async function reorderCmsLayout(payload: {
       ...(b.sectionId ? { section_id: Number(b.sectionId) } : {}),
     })),
   });
+}
+
+export async function resetCmsPage(pageId: string): Promise<CmsPage> {
+  const { data } = await apiClient.post<{ data: CmsPage; message: string }>(`/admin/cms/pages/${pageId}/reset`);
+  return data.data;
+}
+
+export async function resetAllCmsPages(): Promise<CmsPage[]> {
+  const { data } = await apiClient.post<{ data: CmsPage[]; message: string }>("/admin/cms/pages/reset-all");
+  return data.data;
 }
 
 export async function uploadCmsImage(file: File): Promise<string> {

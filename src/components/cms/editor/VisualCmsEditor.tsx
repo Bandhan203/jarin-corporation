@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Eye, EyeOff, GripVertical, Save, ChevronUp, ChevronDown,
-  Layout, Layers, Box, ExternalLink, Upload, Image as ImageIcon, Loader2,
+  Layout, Layers, Box, ExternalLink, Upload, Image as ImageIcon, Loader2, RotateCcw,
 } from "lucide-react";
 import {
   fetchAdminPageLayouts,
@@ -18,6 +18,8 @@ import {
   deleteCmsBlock,
   reorderCmsLayout,
   uploadCmsImage,
+  resetCmsPage,
+  resetAllCmsPages,
   sortSections,
   sortBlocks,
   type CmsPage,
@@ -208,6 +210,8 @@ function BlockEditor({
   );
 }
 
+const DEFAULT_PAGE_SLUGS = new Set(["home", "explore", "how-it-works"]);
+
 function applyPagesUpdate(pages: CmsPage[], updater: (pages: CmsPage[]) => CmsPage[]): CmsPage[] {
   return updater(pages);
 }
@@ -240,6 +244,7 @@ export default function VisualCmsEditor() {
   const [draftBlock, setDraftBlock] = useState<{ content: CmsBlockContent; label: string } | null>(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const pagesRef = useRef<CmsPage[]>([]);
 
   const { data: pages = [], isLoading, isError, error } = useQuery({
@@ -266,6 +271,7 @@ export default function VisualCmsEditor() {
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["admin-cms-pages"] });
     await queryClient.invalidateQueries({ queryKey: ["cms-page"] });
+    await queryClient.invalidateQueries({ queryKey: ["cms"] });
     setLocalPages(null);
   }, [queryClient]);
 
@@ -465,6 +471,54 @@ export default function VisualCmsEditor() {
     }
   };
 
+  const canResetActivePage = activePage ? DEFAULT_PAGE_SLUGS.has(activePage.slug) : false;
+
+  const handleResetPage = async () => {
+    if (!activePage || !canResetActivePage) return;
+    if (!confirm(`Reset "${activePage.title}" to default design? All your changes on this page will be lost.`)) return;
+
+    setResetting(true);
+    try {
+      const updated = await resetCmsPage(activePage.id);
+      setSelectedSectionId(null);
+      setSelectedBlockId(null);
+      setDraftBlock(null);
+      setLocalPages((prev) => {
+        const base = prev ?? pages;
+        return base.map((p) => (p.id === updated.id ? updated : p));
+      });
+      queryClient.setQueryData<CmsPage[]>(["admin-cms-pages"], (old) =>
+        old ? old.map((p) => (p.id === updated.id ? updated : p)) : [updated],
+      );
+      await refresh();
+      toast.success("Page reset to default design");
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleResetAllPages = async () => {
+    if (!confirm("Reset ALL pages (Home, Explore, How It Works) to default design? This cannot be undone.")) return;
+
+    setResetting(true);
+    try {
+      const updatedPages = await resetAllCmsPages();
+      setSelectedSectionId(null);
+      setSelectedBlockId(null);
+      setDraftBlock(null);
+      queryClient.setQueryData<CmsPage[]>(["admin-cms-pages"], updatedPages);
+      setLocalPages(updatedPages);
+      await refresh();
+      toast.success("All pages reset to default design");
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-full min-h-0 flex items-center justify-center bg-[#FAFAFA]">
@@ -503,9 +557,30 @@ export default function VisualCmsEditor() {
             </div>
           </div>
           {activePage && (
-            <a href={activePage.path} target="_blank" rel="noreferrer" className="flex items-center gap-[6px] px-[12px] py-[8px] border border-neutral-200 text-[#4d4635] font-['Inter'] text-[10px] tracking-[1px] uppercase hover:border-[#d4af37]">
-              <ExternalLink size={12} /> Live Page
-            </a>
+            <div className="flex items-center gap-[8px]">
+              <button
+                type="button"
+                onClick={handleResetPage}
+                disabled={resetting || !canResetActivePage}
+                title={canResetActivePage ? "Reset this page to default design" : "No default layout for this page"}
+                className="flex items-center gap-[6px] px-[12px] py-[8px] border border-neutral-200 text-[#4d4635] font-['Inter'] text-[10px] tracking-[1px] uppercase hover:border-[#c62828] hover:text-[#c62828] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {resetting ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                Reset Page
+              </button>
+              <button
+                type="button"
+                onClick={handleResetAllPages}
+                disabled={resetting}
+                title="Reset Home, Explore, and How It Works to default"
+                className="flex items-center gap-[6px] px-[12px] py-[8px] border border-neutral-200 text-[#9e9e9e] font-['Inter'] text-[10px] tracking-[1px] uppercase hover:border-[#c62828] hover:text-[#c62828] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Reset All
+              </button>
+              <a href={activePage.path} target="_blank" rel="noreferrer" className="flex items-center gap-[6px] px-[12px] py-[8px] border border-neutral-200 text-[#4d4635] font-['Inter'] text-[10px] tracking-[1px] uppercase hover:border-[#d4af37]">
+                <ExternalLink size={12} /> Live Page
+              </a>
+            </div>
           )}
         </div>
 

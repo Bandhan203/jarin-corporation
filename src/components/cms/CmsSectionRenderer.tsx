@@ -28,8 +28,14 @@ export interface CmsRenderContext {
   onSelectBlock?: (sectionId: string, blockId: string) => void;
 }
 
-function resolveText(block: CmsBlock | undefined, cmsByKey: Record<string, string> | undefined, fallback: string): string {
+function resolveText(
+  block: CmsBlock | undefined,
+  cmsByKey: Record<string, string> | undefined,
+  fallback: string,
+  preview = false,
+): string {
   if (!block) return fallback;
+  if (preview) return getBlockText(block, fallback);
   if (block.content.cmsKey && cmsByKey?.[block.content.cmsKey]) {
     return cmsByKey[block.content.cmsKey];
   }
@@ -77,11 +83,27 @@ function SelectWrap({
   );
 }
 
+function renderHeadlineText(block: CmsBlock | undefined, cmsByKey: Record<string, string> | undefined, fallback: string, preview = false) {
+  const text = resolveText(block, cmsByKey, fallback, preview);
+  const highlight = block?.content?.highlight;
+  if (!highlight || !text.includes(highlight)) {
+    return <>{text}</>;
+  }
+  const [before, after] = text.split(highlight);
+  return (
+    <>
+      {before}
+      <span className="text-[#735c00]">{highlight}</span>
+      {after}
+    </>
+  );
+}
+
 function HeroSection({ section, ctx }: { section: CmsSection; ctx: CmsRenderContext }) {
   const navigate = useNavigate();
-  const blocks = section.blocks;
-  const headline = resolveText(findBlock(blocks, "heading", "Main Headline"), ctx.cmsByKey, "Bangladesh er Prothom Automated Real Estate Co-operative Platform.");
-  const tagline = resolveText(findBlock(blocks, "text", "Sub Tagline"), ctx.cmsByKey, "");
+  const blocks = blocksForRender(section.blocks, ctx.preview);
+  const headlineBlock = findBlock(blocks, "heading", "Main Headline");
+  const tagline = resolveText(findBlock(blocks, "text", "Sub Tagline"), ctx.cmsByKey, "", ctx.preview);
   const primary = blocks.find((b) => b.label === "Primary CTA");
   const secondary = blocks.find((b) => b.label === "Secondary CTA");
   const imageBlock = blocks.find((b) => b.type === "image");
@@ -99,8 +121,10 @@ function HeroSection({ section, ctx }: { section: CmsSection; ctx: CmsRenderCont
       <div className="flex flex-col gap-[80px] items-start pb-[64px] px-[64px] pt-[40px]">
         <div className="flex flex-col gap-[24px] items-start max-w-[896px] w-full">
           <div className="bg-[#d4af37] h-px w-[64px]" />
-          <SelectWrap id={findBlock(blocks, "heading")?.id ?? "h"} type="block" preview={ctx.preview} selected={ctx.selectedBlockId === findBlock(blocks, "heading")?.id} onClick={() => { const b = findBlock(blocks, "heading"); if (b) ctx.onSelectBlock?.(section.id, b.id); }}>
-            <div className="font-['Noto_Serif:Regular',sans-serif] font-normal text-[#1a1c1c] text-[48px] tracking-[-0.96px] leading-[52.8px]" style={{ fontVariationSettings: '"CTGR" 0, "wdth" 100' }}>{headline}</div>
+          <SelectWrap id={headlineBlock?.id ?? "h"} type="block" preview={ctx.preview} selected={ctx.selectedBlockId === headlineBlock?.id} onClick={() => { if (headlineBlock) ctx.onSelectBlock?.(section.id, headlineBlock.id); }}>
+            <div className="font-['Noto_Serif:Regular',sans-serif] font-normal text-[#1a1c1c] text-[48px] tracking-[-0.96px] leading-[52.8px]" style={{ fontVariationSettings: '"CTGR" 0, "wdth" 100' }}>
+              {renderHeadlineText(headlineBlock, ctx.cmsByKey, "Bangladesh er Prothom Automated Real Estate Co-operative Platform.", ctx.preview)}
+            </div>
           </SelectWrap>
           <SelectWrap id={findBlock(blocks, "text")?.id ?? "t"} type="block" preview={ctx.preview} selected={ctx.selectedBlockId === findBlock(blocks, "text")?.id} onClick={() => { const b = findBlock(blocks, "text"); if (b) ctx.onSelectBlock?.(section.id, b.id); }}>
             <p className="font-['Inter:Regular',sans-serif] font-normal text-[#4d4635] text-[16px] leading-[24px] max-w-[672px]">{tagline}</p>
@@ -108,13 +132,13 @@ function HeroSection({ section, ctx }: { section: CmsSection; ctx: CmsRenderCont
           <div className="flex gap-[16px] items-start pt-[24px] flex-wrap">
             {primary && (
               <button onClick={() => !ctx.preview && navigate(primary.content.url ?? "/explore")} className="relative flex items-center justify-center px-[32px] py-[17px] bg-[#1a1c1c] hover:bg-[#2e2b27] transition-colors cursor-pointer rounded-none">
-                <span className="font-['Inter:Regular',sans-serif] font-normal text-white text-[16px] text-center tracking-[1.6px] uppercase leading-[24px]">{resolveText(primary, ctx.cmsByKey, "EXPLORE")}</span>
+                <span className="font-['Inter:Regular',sans-serif] font-normal text-white text-[16px] text-center tracking-[1.6px] uppercase leading-[24px]">{resolveText(primary, ctx.cmsByKey, "EXPLORE", ctx.preview)}</span>
               </button>
             )}
             {secondary && (
               <button onClick={() => !ctx.preview && navigate(secondary.content.url ?? "/submit-land")} className="group relative flex items-center justify-center px-[33px] py-[17px] hover:bg-[#1a1c1c]/5 transition-colors cursor-pointer">
                 <div aria-hidden className="absolute border border-[#1a1c1c] border-solid inset-0 pointer-events-none" />
-                <span className="font-['Inter:Regular',sans-serif] font-normal text-[#1a1c1c] text-[16px] text-center tracking-[1.6px] uppercase leading-[24px]">{resolveText(secondary, ctx.cmsByKey, "SUBMIT LAND")}</span>
+                <span className="font-['Inter:Regular',sans-serif] font-normal text-[#1a1c1c] text-[16px] text-center tracking-[1.6px] uppercase leading-[24px]">{resolveText(secondary, ctx.cmsByKey, "SUBMIT LAND", ctx.preview)}</span>
               </button>
             )}
           </div>
@@ -195,6 +219,7 @@ function ProjectGridSection({ section, ctx }: { section: CmsSection; ctx: CmsRen
   const { data: apiProjects = [], isLoading } = useQuery({ queryKey: ["projects"], queryFn: fetchProjects, enabled: !ctx.preview });
   const title = findBlock(section.blocks, "heading");
   const subtitle = findBlock(section.blocks, "text");
+  const portfolioLink = findBlock(section.blocks, "button", "View Portfolio");
 
   const projects = apiProjects.map((p, index) => ({
     id: p.id,
@@ -211,9 +236,20 @@ function ProjectGridSection({ section, ctx }: { section: CmsSection; ctx: CmsRen
   return (
     <SelectWrap id={section.id} type="section" preview={ctx.preview} selected={ctx.selectedSectionId === section.id} onClick={() => ctx.onSelectSection?.(section.id)} className="bg-[#f9f9f9] relative w-full">
       <div className="flex flex-col gap-[48px] items-start p-[64px]">
-        <div className="flex flex-col gap-[8px]">
-          {title && <span className="font-['Noto_Serif:Regular',sans-serif] text-[#1a1c1c] text-[16px]">{getBlockText(title)}</span>}
-          {subtitle && <span className="font-['Inter:Regular',sans-serif] text-[#4d4635] text-[16px]">{getBlockText(subtitle)}</span>}
+        <div className="flex items-end justify-between w-full gap-[24px] flex-wrap">
+          <div className="flex flex-col gap-[8px]">
+            {title && <span className="font-['Noto_Serif:Regular',sans-serif] text-[#1a1c1c] text-[16px]">{getBlockText(title)}</span>}
+            {subtitle && <span className="font-['Inter:Regular',sans-serif] text-[#4d4635] text-[16px]">{getBlockText(subtitle)}</span>}
+          </div>
+          {portfolioLink && (
+            <button
+              type="button"
+              onClick={() => !ctx.preview && navigate(portfolioLink.content.url ?? "/explore")}
+              className="font-['Inter:Regular',sans-serif] text-[#735c00] text-[16px] uppercase border-b border-[#735c00] pb-[5px] cursor-pointer hover:opacity-80"
+            >
+              {getBlockText(portfolioLink)}
+            </button>
+          )}
         </div>
         {ctx.preview && projects.length === 0 && (
           <div className="grid grid-cols-3 gap-[32px] w-full">
@@ -245,10 +281,26 @@ function ProjectGridSection({ section, ctx }: { section: CmsSection; ctx: CmsRen
 
 function StepsSection({ section, ctx }: { section: CmsSection; ctx: CmsRenderContext }) {
   const steps = blocksForRender(section.blocks, ctx.preview).filter((b) => b.type === "step");
+  const eyebrow = findBlock(section.blocks, "eyebrow");
+  const heading = findBlock(section.blocks, "heading");
 
   return (
     <SelectWrap id={section.id} type="section" preview={ctx.preview} selected={ctx.selectedSectionId === section.id} onClick={() => ctx.onSelectSection?.(section.id)} className="relative w-full bg-white">
-      <div className="flex flex-col gap-[64px] items-start p-[64px]">
+      <div className="flex flex-col gap-[80px] items-start p-[64px]">
+        {(eyebrow || heading) && (
+          <div className="flex flex-col gap-[18.5px] items-center w-full pt-[6.5px]">
+            {eyebrow && (
+              <span className="font-['Inter:Regular',sans-serif] text-[#735c00] text-[10px] tracking-[3px] uppercase leading-[15px] text-center">
+                {getBlockText(eyebrow)}
+              </span>
+            )}
+            {heading && (
+              <span className="font-['Noto_Serif:Regular',sans-serif] text-[#1a1c1c] text-[16px] leading-[24px] text-center" style={{ fontVariationSettings: '"CTGR" 0, "wdth" 100' }}>
+                {getBlockText(heading)}
+              </span>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[32px] w-full">
           {steps.map((step) => (
             <SelectWrap key={step.id} id={step.id} type="block" preview={ctx.preview} selected={ctx.selectedBlockId === step.id} hidden={ctx.preview && !step.isVisible} onClick={() => ctx.onSelectBlock?.(section.id, step.id)}>
@@ -266,7 +318,9 @@ function StepsSection({ section, ctx }: { section: CmsSection; ctx: CmsRenderCon
                   <div className="-translate-x-1/2 absolute bg-[#735c00] flex items-center justify-center left-1/2 size-[32px] top-[-16px]"><span className="font-['Inter'] font-bold text-white text-[16px]">{step.content.num}</span></div>
                   <span className="font-['Noto_Serif:Regular',sans-serif] text-[#1a1c1c] text-[16px] text-center">{step.content.title}</span>
                   <span className="font-['Inter:Regular',sans-serif] text-[#4d4635] text-[14px] text-center">{step.content.desc}</span>
-                  <span className="font-['Inter:Regular',sans-serif] text-[#735c00] text-[12px] text-center opacity-80">{step.content.detail}</span>
+                  {step.content.detail && (
+                    <span className="font-['Inter:Regular',sans-serif] text-[#735c00] text-[12px] text-center opacity-80">{step.content.detail}</span>
+                  )}
                 </div>
               </div>
             </SelectWrap>

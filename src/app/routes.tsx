@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import PublicLayout from "../layouts/PublicLayout";
 import PortalLayout from "../layouts/PortalLayout";
 import Landing from "../pages/Landing";
@@ -88,6 +88,11 @@ export const router = createBrowserRouter([
       { path: "project/:id", Component: ProjectDetail },
       { path: "submit-land", Component: SubmitLand },
       { path: "login", Component: Login },
+      // Short aliases — admin lives under /portal/admin
+      { path: "admin", element: <Navigate to="/portal/admin" replace /> },
+      { path: "admin/cms", element: <Navigate to="/portal/admin/cms" replace /> },
+      { path: "admin/projects", element: <Navigate to="/portal/admin/projects" replace /> },
+      { path: "admin/audit", element: <Navigate to="/portal/admin/audit" replace /> },
       { path: "*", Component: NotFound },
     ],
   },

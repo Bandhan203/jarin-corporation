@@ -8,6 +8,7 @@ use App\Http\Controllers\CostController;
 use App\Http\Controllers\LandownerAnalyticsController;
 use App\Http\Controllers\LandSubmissionController;
 use App\Http\Controllers\CmsMediaController;
+use App\Http\Controllers\NidVerificationController;
 use App\Http\Controllers\PageLayoutController;
 use App\Http\Controllers\PaymentLedgerController;
 use App\Http\Controllers\ProjectController;
